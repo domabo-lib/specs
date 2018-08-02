@@ -1,6 +1,6 @@
 ###########################################################
 #
-#  Description of Dropbox Core API v1
+#  Description of Dropbox Content API v1
 #
 #  License: MIT (see http://choosealicense.com/licenses/mit/)
 #  Author: Vladimir Lyubitelev
@@ -10,19 +10,13 @@ swagger: '2.0'
 # Description
 info:
   version: 1.0.0
-  title: Dropbox Core API v1
+  title: Dropbox Content API v1
   description: |
-      The Dropbox **Core API** is the underlying interface for all of our official [Dropbox mobile apps](https://www.dropbox.com/mobile)
-      and our [SDKs](https://www.dropbox.com/developers/core/sdk). It's the most direct way to access the API. This
-      reference document is designed for those interested in developing for platforms not supported by the SDKs or for
-      those interested in exploring API features in detail.
+      The Dropbox **Content API** is a part of [Dropbox Core API](https://www.dropbox.com/developers-v1/core/docs) with a separate
+      end-point for file content management operations: `https://api-content.dropbox.com`
 
-      Please refer to official Dropbox [developers documentation](https://www.dropbox.com/developers-v1/core/docs) for any
-      additional remarks.
-
-      Please note:
-        * `https://api-content.dropbox.com` end-point is covered by Dropbox Content API document (see `dropbox-content.yaml`)
-        * `https://api-notify.dropbox.com` end-point is covered by Dropbox Notify Appendix document (see `dropbox-notify.yaml`)
+      The Dropbox **Core API** document (see `dropbox-core.yaml`) describes tokens management, account information,
+      metadata retrieval and file operations.
 
       **OAuth note:** if you wish to try HTTP request directly from Swagger UI you have to authorize agains
       "Swagger UI Test App". This application is configured with following redirect URI:
@@ -39,23 +33,15 @@ externalDocs:
   description: Developers documentation API v1
   url: https://www.dropbox.com/developers-v1/core/docs
 
-host: api.dropbox.com
+host: api-content.dropbox.com
 basePath: /1
 schemes:
   - https
-produces:
-  - application/json
 
 # Groups and their descriptions
 tags:
-  - name: tokens
-    description: Manage access tokens
-  - name: accounts
-    description: Dropbox accounts
   - name: files
-    description: Files and metadata
-  - name: fileops
-    description: File operations
+    description: Files content management
 
 # Security
 securityDefinitions:
@@ -69,146 +55,41 @@ securityDefinitions:
 
 # Error responses
 responses:
-  NotModified:
-    description: The folder contents have not changed (relies on hash parameter).
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  BadRequest:
-    description: Bad input parameter. Error message should indicate which one and why.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
   Unauthorized:
     description: |
         Bad or expired token. This can happen if the user or Dropbox revoked or expired an access token. To fix,
         you should re-authenticate the user.
     schema:
       $ref: '#/definitions/ErrorMessage'
-  Forbidden:
-    description: |
-        Bad OAuth request (wrong consumer key, bad nonce, expired timestamp...). Unfortunately, re-authenticating
-        the user won't help here.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  SharedFolderForbidden:
-    description: |
-        Returned if this app does not have Full Dropbox or File type permissions, or if the user doesn't have
-        access to the specified shared folder.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
   NotFound:
-    description: File or folder not found at the specified path.
+    description: The file wasn't found at the specified path, or wasn't found at the specified `rev`.
     schema:
       $ref: '#/definitions/ErrorMessage'
-  FileNotFound:
-    description: File not found at the specified path, or unable to find the revision at that path.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  NotAcceptable:
+  Conflict:
     description: |
-        Too many files would be involved in the operation for it to complete successfully. The limit is
-        currently 10,000 files and folders.
+        The call failed because a conflict occurred. This means a file already existed at the specified path,
+        `overwrite` was false, and the `parent_rev` (if specified) didn't match the current `rev`.
     schema:
       $ref: '#/definitions/ErrorMessage'
-  TooManyRequests:
-    description: |
-        Your app is making too many requests and is being rate limited. 429s can trigger on a per-app or
-        per-user basis.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  InternalServerError:
-    description: Server error, applies to any other HTTP 5xx status. Check [DropboxOps](http://status.dropbox.com/).
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  ServiceUnavailable:
-    description: |
-        If the response includes the `Retry-After` header, this means your OAuth 1.0 app is being rate limited.
-        Otherwise, this indicates a transient server error, and your app should retry its request.
-    schema:
-      $ref: '#/definitions/ErrorMessage'
-  InsufficientStorage:
-    description: User is over Dropbox storage quota.
+  LengthRequired:
+    description: Missing `Content-Length` header (this endpoint doesn't support HTTP chunked transfer encoding).
     schema:
       $ref: '#/definitions/ErrorMessage'
 
 # URL patterns
 paths:
-  /oauth2/token_from_oauth1:
-    post:
-      tags:
-        - tokens
-      summary: Convert OAuth 1 token to OAuth 2 token.
-      description: |
-          This endpoint should be used by apps transitioning from OAuth 1 to OAuth 2. It will return an OAuth 2 token
-          for the authenticated user.
-      responses:
-        200:
-          description: OAuth 2 token response.
-          schema:
-            $ref: '#/definitions/OAuth2Token'
-      security:
-        - dropbox_auth: []
-
-  /disable_access_token:
-    post:
-      tags:
-        - tokens
-      summary: Disables the access token.
-      description: |
-          Disables the access token used to authenticate the call. This method works for OAuth 1 and OAuth 2 tokens.
-      responses:
-        200:
-          description: An empty JSON dictionary, which indicates success.
-      security:
-        - dropbox_auth: []
-
-  /account/info:
-    get:
-      tags:
-        - accounts
-      summary: Retrieves information about the user's account.
-      description: Retrieves information about the user's account.
-      parameters:
-        - name: locale
-          in: query
-          type: string
-          description: |
-              Use to specify language settings for user error messages and other language specific text. See the
-              [locale notes](https://www.dropbox.com/developers/core/docs#param.locale) for more information about
-              supported locales.
-          required: false
-      responses:
-        200:
-          description: User account information.
-          schema:
-            $ref: '#/definitions/UserAccountInfo'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /metadata/{root}/{path}:
+  /files/{root}/{path}:
     get:
       tags:
         - files
-      summary: Retrieves file and folder metadata.
+      produces:
+        - application/octet-stream
+      summary: Downloads a file.
       description: |
-          Retrieves file and folder metadata.
+          Downloads a file.
 
-          **Note:** `modified`, `rev`, and `revision` aren't returned in the metadata for the root/top-level path.
+          This method also supports [HTTP Range Retrieval Requests](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.2)
+          to allow retrieving partial file contents.
       parameters:
         - name: root
           in: path
@@ -222,267 +103,279 @@ paths:
           in: path
           type: string
           required: true
-          description: The path to the file or folder.
-        - name: file_limit
-          in: query
-          type: integer
-          required: false
-          description: |
-              Default is 10,000 (max is 25,000). When listing a folder, the service won't report listings containing
-              more than the specified amount of files and will instead respond with a 406 (Not Acceptable) status response.
-        - name: hash
-          in: query
-          type: string
-          required: false
-          description: |
-              Each call to `/metadata` on a folder will return a `hash` field, generated by hashing all of the metadata
-              contained in that response. On later calls to `/metadata`, you should provide that value via this
-              parameter so that if nothing has changed, the response will be a 304 (Not Modified) status code instead
-              of the full, potentially very large, folder listing. This parameter is ignored if the specified path is
-              associated with a file or if `list=false`.
-        - name: list
-          in: query
-          type: boolean
-          required: false
-          description: |
-              The strings `true` and `false` are valid values. `true` is the default. If `true`, the folder's metadata will
-              include a contents field with a list of metadata entries for the contents of the folder. If `false`, the
-              contents field will be omitted.
-        - name: include_deleted
-          in: query
-          type: boolean
-          required: false
-          description: |
-              Only applicable when `list` is set. If this parameter is set to `true`, then contents will include the
-              metadata of deleted children. Note that the target of the metadata call is always returned even when it
-              has been deleted (with `is_deleted` set to `true`) regardless of this flag.
+          description: The path to the file you want to retrieve.
         - name: rev
           in: query
           type: string
           required: false
+          description: The revision of the file to retrieve. This defaults to the most recent revision.
+      responses:
+        200:
           description: |
-              If you include a particular revision number, then only the metadata for that revision will be returned.
+              The specified file's contents at the requested revision.
+
+              The HTTP response contains the [content metadata](https://www.dropbox.com/developers/core/docs#metadata-details)
+              in JSON format within an `x-dropbox-metadata` header.
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          $ref: '#/responses/NotFound'
+      security:
+        - dropbox_auth: []
+
+  /files_put/{root}/{path}:
+    put:
+      tags:
+        - files
+      produces:
+        - application/json
+      summary: Uploads a file using PUT semantics.
+      description: |
+          Uploads a file using PUT semantics.
+
+          The preferred HTTP method for this call is **PUT**. For compatibility with browser environments, the **POST**
+          HTTP method is also recognized.
+
+          **Note:** Providing a `Content-Length` header set to the size of the uploaded file is required so that the
+          server can verify that it has received the entire file contents.
+
+          **Note:** `/files_put` has a maximum file size limit of 150 MB and does not support uploads with chunked
+          encoding. To upload larger files, use [/chunked_upload](https://www.dropbox.com/developers/core/docs#chunked-upload)
+          instead.
+      parameters:
+        - name: root
+          in: path
+          type: string
+          enum: [ 'auto', 'sandbox', 'dropbox' ]
+          required: true
+          description: |
+              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
+              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
+        - name: path
+          in: path
+          type: string
+          required: true
+          description: The full path to the file you want to write to. This parameter should *not* point to a folder.
         - name: locale
           in: query
           type: string
           required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: include_media_info
+          description: The metadata returned on successful upload will have its `size` field translated based on the given locale.
+        - name: overwrite
           in: query
           type: boolean
           required: false
           description: |
-              If `true`, each file will include a `photo_info` dictionary for photos and a `video_info` dictionary
-              for videos with additional media info. If the data isn't available yet, the string `pending` will be
-              returned instead of a dictionary.
-        - name: include_membership
+              This value, either `true` (default) or `false`, determines whether an existing file will be overwritten
+              by this upload. If `true`, any existing file will be overwritten. If `false`, the other parameters
+              determine whether a conflict occurs and how that conflict is resolved.
+        - name: parent_rev
+          in: query
+          type: string
+          required: false
+          description: |
+              If present, this parameter specifies the revision of the file you're editing. If `parent_rev` matches the
+              latest version of the file on the user's Dropbox, that file will be replaced. Otherwise, a conflict will
+              occur. If you specify a `parent_rev` and that revision doesn't exist, the file won't save (error 400).
+              You can get the most recent rev by performing a call to [/metadata](https://www.dropbox.com/developers/core/docs#metadata).
+        - name: autorename
           in: query
           type: boolean
           required: false
-          description: If `true`, metadata for a shared folder will include a list of members and a list of groups.
+          description: |
+              This value, either `true` (default) or `false`, determines what happens when there is a conflict. If `true`,
+              the file being uploaded will be automatically renamed to avoid the conflict. (For example, `test.txt` might
+              be automatically renamed to `test (1).txt`.) The new name can be obtained from the returned metadata.
+              If `false`, the call will fail with a 409 (Conflict) response code.
+        - name: file_content
+          in: body
+          required: true
+          description: |
+              The file contents to be uploaded. Since the entire `PUT` body will be treated as the file, any parameters
+              must be passed as part of the request URL. The request URL should be signed just as you would sign any
+              other OAuth request URL.
+          schema:
+            type: file
       responses:
         200:
           description: |
-            The metadata for the file or folder at the given `path`. If `path` represents a folder and the `list` parameter
-            is `true`, the metadata will also include a listing of metadata for the folder's contents.
+              The metadata for the uploaded file. More information on the returned metadata fields are
+              available [here](https://www.dropbox.com/developers/core/docs#metadata-details).
           schema:
-            $ref: '#/definitions/ResourceMetadata'
-        304:
-          $ref: '#/responses/NotModified'
-        400:
-          $ref: '#/responses/BadRequest'
+            $ref: '#/definitions/FileMetadata'
         401:
           $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
+        409:
+          $ref: '#/responses/Conflict'
+        411:
+          $ref: '#/responses/LengthRequired'
+      security:
+        - dropbox_auth: []
+
+    post:
+      tags:
+        - files
+      produces:
+        - application/json
+      summary: Uploads a file using PUT semantics.
+      description: |
+          Uploads a file using PUT semantics.
+
+          The preferred HTTP method for this call is **PUT**. For compatibility with browser environments, the **POST**
+          HTTP method is also recognized.
+
+          **Note:** Providing a `Content-Length` header set to the size of the uploaded file is required so that the
+          server can verify that it has received the entire file contents.
+
+          **Note:** `/files_put` has a maximum file size limit of 150 MB and does not support uploads with chunked
+          encoding. To upload larger files, use [/chunked_upload](https://www.dropbox.com/developers/core/docs#chunked-upload)
+          instead.
+      parameters:
+        - name: root
+          in: path
+          type: string
+          enum: [ 'auto', 'sandbox', 'dropbox' ]
+          required: true
+          description: |
+              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
+              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
+        - name: path
+          in: path
+          type: string
+          required: true
+          description: The full path to the file you want to write to. This parameter should *not* point to a folder.
+        - name: locale
+          in: query
+          type: string
+          required: false
+          description: The metadata returned on successful upload will have its `size` field translated based on the given locale.
+        - name: overwrite
+          in: query
+          type: boolean
+          required: false
+          description: |
+              This value, either `true` (default) or `false`, determines whether an existing file will be overwritten
+              by this upload. If `true`, any existing file will be overwritten. If `false`, the other parameters
+              determine whether a conflict occurs and how that conflict is resolved.
+        - name: parent_rev
+          in: query
+          type: string
+          required: false
+          description: |
+              If present, this parameter specifies the revision of the file you're editing. If `parent_rev` matches the
+              latest version of the file on the user's Dropbox, that file will be replaced. Otherwise, a conflict will
+              occur. If you specify a `parent_rev` and that revision doesn't exist, the file won't save (error 400).
+              You can get the most recent rev by performing a call to [/metadata](https://www.dropbox.com/developers/core/docs#metadata).
+        - name: autorename
+          in: query
+          type: boolean
+          required: false
+          description: |
+              This value, either `true` (default) or `false`, determines what happens when there is a conflict. If `true`,
+              the file being uploaded will be automatically renamed to avoid the conflict. (For example, `test.txt` might
+              be automatically renamed to `test (1).txt`.) The new name can be obtained from the returned metadata.
+              If `false`, the call will fail with a 409 (Conflict) response code.
+        - name: file_content
+          in: body
+          required: true
+          description: |
+              The file contents to be uploaded. Since the entire `PUT` body will be treated as the file, any parameters
+              must be passed as part of the request URL. The request URL should be signed just as you would sign any
+              other OAuth request URL.
+          schema:
+            type: file
+      responses:
+        200:
+          description: |
+              The metadata for the uploaded file. More information on the returned metadata fields are
+              available [here](https://www.dropbox.com/developers/core/docs#metadata-details).
+          schema:
+            $ref: '#/definitions/FileMetadata'
+        401:
+          $ref: '#/responses/Unauthorized'
+        409:
+          $ref: '#/responses/Conflict'
+        411:
+          $ref: '#/responses/LengthRequired'
+      security:
+        - dropbox_auth: []
+
+  /thumbnails/{root}/{path}:
+    get:
+      tags:
+        - files
+      produces:
+        - application/octet-stream
+      summary: Gets a thumbnail for an image.
+      description: |
+          Gets a thumbnail for an image.
+
+          This method currently supports files with the following file extensions: .jpg, .jpeg, .png, .tiff, .tif, .gif, .bmp
+
+          Photos that are larger than 20MB in size won't be converted to a thumbnail.
+      parameters:
+        - name: root
+          in: path
+          type: string
+          enum: [ 'auto', 'sandbox', 'dropbox' ]
+          required: true
+          description: |
+              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
+              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
+        - name: path
+          in: path
+          type: string
+          required: true
+          description: The path to the image file you want to thumbnail.
+        - name: format
+          in: query
+          type: string
+          enum:
+            - jpeg
+            - png
+          required: false
+          description: |
+              For images that are photos, `jpeg` (default) should be preferred, while `png` is better for screenshots and digital art.
+        - name: size
+          in: query
+          type: string
+          enum: [ 'xs', 's', 'm', 'l', 'xl' ]
+          required: false
+          description: Default size is `s`. Sizes in pixels are `xs` - 32x32, `s` - 64x64, `m` - 128x128, `l` - 640x480, `xl` - 1024x768
+      responses:
+        200:
+          description: |
+              A thumbnail of the specified image's contents. The image returned may be larger or smaller than the size
+              requested, depending on the size and aspect ratio of the original image.
+
+              The HTTP response contains the [content metadata](https://www.dropbox.com/developers/core/docs#metadata-details)
+              in JSON format within an `x-dropbox-metadata` header.
+        401:
+          $ref: '#/responses/Unauthorized'
         404:
-          $ref: '#/responses/NotFound'
-        406:
-          description: There are too many file entries to return.
+          description: The file path wasn't found or the file extension doesn't allow conversion to a thumbnail.
           schema:
             $ref: '#/definitions/ErrorMessage'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /delta:
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: A way of letting you keep up with changes to files and folders in a user's Dropbox.
-      description: |
-          A way of letting you keep up with changes to files and folders in a user's Dropbox.
-
-          You can periodically call `/delta` to get a list of "delta entries", which are instructions on how to
-          update your local state to match the server's state.
-
-          If you use the `path_prefix` parameter, you must continue to pass the correct prefix on subsequent calls
-          using the returned cursor. You can switch the `path_prefix` on any existing cursor to a descendant of the
-          existing `path_prefix` on subsequent calls to `/delta`. For example if your cursor has no `path_prefix`,
-          you can switch to any `path_prefix`. If your cursor has a `path_prefix` of "/Photos", you can switch it
-          to "/Photos/Vacaction".
-
-          When `include_media_info` is specified, files will only appear in delta responses when the media info is
-          ready. If you use the `include_media_info` parameter, you must continue to pass the same value on subsequent
-          calls using the returned cursor.
-
-          **Important:** Unfortunately it is not possible to model correct Dropbox response with Swagger specification,
-          due to [nested array](https://github.com/swagger-api/swagger-spec/issues/40) usage in delta response.
-
-          Successful result [will return](https://gist.github.com/ando-takahiro/5203137) an array of delta `entries`.
-          Each delta entry is a 2-item list of one of the following forms:
-
-            * `[<path>, <metadata>]` - Indicates that there is a file/folder at the given path. You should add the entry
-            to your local state. The metadata value is the same as what would be returned by the `/metadata` call, except
-            folder metadata doesn't have `hash` or `contents` fields. To correctly process delta entries:
-              * If the new entry includes parent folders that don't yet exist in your local state, create those parent
-              folders in your local state.
-              * If the new entry is a file, replace whatever your local state has at path with the new entry.
-              * If the new entry is a folder, check what your local state has at `<path>`. If it's a file, replace it
-              with the new entry. If it's a folder, apply the new `<metadata>` to the folder, but don't modify the
-              folder's children. If your local state doesn't yet include this path, create it as a folder.
-              * If the new entry is a folder with the `read-only` field set to `true`, apply the read-only permission
-              recursively to all files within the shared folder.
-            * `[<path>, null]` - Indicates that there is no file/folder at the given path. To update your local state
-            to match, anything at path and all its children should be deleted. Deleting a folder in your Dropbox will
-            sometimes send down a single deleted entry for that folder, and sometimes separate entries for the folder
-            and all child paths. If your local state doesn't have anything at path, ignore this entry.
-
-          **Note:** Dropbox treats file names in a case-insensitive but case-preserving way. To facilitate this,
-          the `<path>` values above are lower-cased versions of the actual path. The last path component of the
-          `<metadata>` value will be case-preserved.
-      parameters:
-        - name: cursor
-          in: formData
-          type: string
-          required: false
-          description: |
-              A string that is used to keep track of your current state. On the next call pass in this value to return
-              delta entries that have been recorded since the cursor was returned.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: path_prefix
-          in: formData
-          type: string
-          required: false
-          description: |
-              If present, this parameter filters the response to only include entries at or under the specified path.
-              For example, a `path_prefix` of "/Photos/Vacation" will return entries for the path "/Photos/Vacation"
-              and any files and folders under that path.
-        - name: include_media_info
-          in: formData
-          type: boolean
-          required: false
-          description: |
-              If `true`, each file will include a `photo_info` dictionary for photos and a `video_info` dictionary for
-              videos with additional media info.
-      responses:
-        200:
-          description: Changes to files and folders in a user's Dropbox.
+        415:
+          description: The image is invalid and cannot be converted to a thumbnail.
           schema:
-            $ref: '#/definitions/DeltaResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
+            $ref: '#/definitions/ErrorMessage'
       security:
         - dropbox_auth: []
 
-  /delta/latest_cursor:
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: A way to quickly get a cursor for the server's state, for use with /delta.
-      description: |
-          A way to quickly get a cursor for the server's state, for use with `/delta`.
-
-          Unlike `/delta`, `/delta/latest_cursor` does not return any entries, so your app will not know about any
-          existing files or folders in the Dropbox account. For example, if your app processes future delta entries
-          and sees that a folder was deleted, your app won't know what files were in that folder. Use this endpoint
-          if your app only needs to know about new files and modifications and doesn't need to know about files that
-          already exist in Dropbox.
-
-          If you need to build local state to match the server state in Dropbox, you should instead use `/delta`.
-      parameters:
-        - name: path_prefix
-          in: formData
-          type: string
-          required: false
-          description: |
-              If present, the returned cursor will be encoded with a `path_prefix` for the specified path for use
-              with `/delta`.
-        - name: include_media_info
-          in: formData
-          type: boolean
-          required: false
-          description: |
-               If `true`, the returned cursor will be encoded with `include_media_info` set to `true` for use
-               with `/delta`.
-      responses:
-        200:
-          description: Latest cursor for specified parameters.
-          schema:
-            $ref: '#/definitions/CursorInfo'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /revisions/{root}/{path}:
+  /previews/{root}/{path}:
     get:
       tags:
         - files
-      summary: Obtains metadata for all available revisions of a file, including the current revision.
+      produces:
+        - application/pdf
+        - text/html
+      summary: Gets a preview for a file.
       description: |
-          Obtains metadata for all available revisions of a file, including the current revision.
+          Gets a preview for a file.
 
-          Only revisions up to thirty days old are available (or more if the Dropbox user has
-          [Extended Version History](https://www.dropbox.com/help/113)). You can use the revision number in conjunction
-          with the `/restore` call to revert the file to its previous state.
+          Previews are only generated for the files with the following extensions: .doc, .docx, .docm, .ppt, .pps,
+          .ppsx, .ppsm, .pptx, .pptm, .xls, .xlsx, .xlsm, .rtf
       parameters:
         - name: root
           in: path
@@ -496,56 +389,117 @@ paths:
           in: path
           type: string
           required: true
-          description: The path to the file.
-        - name: rev_limit
-          in: query
-          type: integer
-          format: int32
-          required: false
-          description: Default is 10. Max is 1,000. Up to this number of recent revisions will be returned.
-        - name: locale
+          description: The absolute path to the file you want to preview.
+        - name: rev
           in: query
           type: string
           required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
+          description: The revision of the file to retrieve. This defaults to the most recent revision.
       responses:
         200:
-          description: A list of revisions metadata for specified file.
-          schema:
-            $ref: '#/definitions/Revisions'
-        400:
-          $ref: '#/responses/BadRequest'
+          description: |
+              Data that represents a preview of the file. The Content-Type header will be either `application/pdf` or
+              `text/html`. There is a `Original-Content-Length` header which contains the size of the preview data.
         401:
           $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
         404:
           $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
+        409:
+          description: No preview has been generated yet or unable to generate a preview for the file.
+          schema:
+            $ref: '#/definitions/ErrorMessage'
       security:
         - dropbox_auth: []
 
-  /restore/{root}/{path}:
+  /chunked_upload:
+    put:
+      tags:
+        - files
+      produces:
+        - application/json
+      summary: Uploads large files to Dropbox in multiple chunks.
+      description: |
+          Uploads large files to Dropbox in multiple chunks. Also has the ability to resume if the upload is interrupted.
+          This allows for uploads larger than the `/files_put` maximum of 150 MB.
+
+          Typical usage:
+            1. Send a PUT request to `/chunked_upload` with the first chunk of the file without setting `upload_id`, and
+            receive an `upload_id` in return.
+            2. Repeatedly `PUT` subsequent chunks using the `upload_id` to identify the upload in progress and an `offset`
+            representing the number of bytes transferred so far.
+            3. After each chunk has been uploaded, the server returns a new offset representing the total amount transferred.
+            4. After the last chunk, `POST` to `/commit_chunked_upload` to complete the upload.
+
+          Chunks can be any size up to 150 MB. A typical chunk is 4 MB. Using large chunks will mean fewer calls
+          to `/chunked_upload` and faster overall throughput. However, whenever a transfer is interrupted, you will
+          have to resume at the beginning of the last chunk, so it is often safer to use smaller chunks.
+
+          If the offset you submit does not match the expected offset on the server, the server will ignore the request
+          and respond with a 400 error that includes the current offset. To resume upload, seek to the correct offset
+          (in bytes) within the file and then resume uploading from that point.
+
+          A chunked upload can take a maximum of 48 hours before expiring.
+      parameters:
+        - name: upload_id
+          in: query
+          type: string
+          required: false
+          description: |
+              The unique ID of the in-progress upload on the server. If left blank, the server will create a new
+              upload session.
+        - name: offset
+          in: query
+          type: integer
+          format: int64
+          required: false
+          description: |
+              The byte offset of this chunk, relative to the beginning of the full file. The server will verify that
+              this matches the offset it expects. If it does not, the server will return an error with the expected
+              offset.
+        - name: file_content
+          in: body
+          required: true
+          description: |
+              A chunk of data from the file being uploaded. If resuming, the chunk should begin at the number of bytes
+              into the file that equals the `offset`.
+          schema:
+            type: file
+      responses:
+        200:
+          description: |
+              Data that represents a preview of the file. The Content-Type header will be either `application/pdf` or
+              `text/html`. There is a `Original-Content-Length` header which contains the size of the preview data.
+          schema:
+            $ref: '#/definitions/ChunkedUploadInfo'
+        400:
+          description: |
+              The `offset` parameter does not match up with what the server expects. The body of the error response
+              will be JSON similar to the above, indicating the correct `offset` to upload.
+          schema:
+            $ref: '#/definitions/ChunkedUploadError'
+        401:
+          $ref: '#/responses/Unauthorized'
+        404:
+          description: The `upload_id` does not exist or has expired.
+          schema:
+            $ref: '#/definitions/ErrorMessage'
+      security:
+        - dropbox_auth: []
+
+  /commit_chunked_upload/{root}/{path}:
     post:
       tags:
         - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Restores a file path to a previous revision.
+      produces:
+        - application/json
+      summary: Completes an upload initiated by the chunked upload method.
       description: |
-          Restores a file path to a previous revision.
+          Completes an upload initiated by the `/chunked_upload` method. Saves a file uploaded via `/chunked_upload` to
+          a user's Dropbox.
 
-          Unlike downloading a file at a given revision and then re-uploading it, this call is atomic. It also saves
-          a bunch of bandwidth.
+          `/commit_chunked_upload` is similar to `/files_put`. The main difference is that while `/files_put` takes the
+          file contents in the request body, `/commit_chunked_upload` takes a parameter `upload_id`, which is obtained
+          when the file contents are uploaded via `/chunked_upload`.
       parameters:
         - name: root
           in: path
@@ -559,830 +513,61 @@ paths:
           in: path
           type: string
           required: true
-          description: The path to the file.
-        - name: rev
-          in: formData
-          type: string
-          required: true
-          description: The revision of the file to restore.
+          description: The full path to the file you want to write to. This parameter should not point to a folder.
         - name: locale
-          in: formData
+          in: query
           type: string
           required: false
           description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
+              The metadata returned on successful upload will have its `size` field translated based on the given locale.
+        - name: overwrite
+          in: query
+          type: boolean
+          required: false
+          description: |
+              This value, either `true` (default) or `false`, determines whether an existing file will be overwritten by
+              this upload. If `true`, any existing file will be overwritten. If `false`, the other parameters determine
+              whether a conflict occurs and how that conflict is resolved.
+        - name: parent_rev
+          in: query
+          type: string
+          required: false
+          description: |
+              If present, this parameter specifies the revision of the file you're editing. If `parent_rev` matches the
+              latest version of the file on the user's Dropbox, that file will be replaced. Otherwise, a conflict will
+              occur. If you specify a `parent_rev` and that revision doesn't exist, the file won't save (error 400).
+              You can get the most recent `rev` by performing a call to [/metadata](https://www.dropbox.com/developers/core/docs#metadata).
+        - name: autorename
+          in: query
+          type: boolean
+          required: false
+          description: |
+              This value, either `true` (default) or `false`, determines what happens when there is a conflict. If `true`,
+              the file being uploaded will be automatically renamed to avoid the conflict. (For example, `test.txt` might
+              be automatically renamed to `test (1).txt`.) The new name can be obtained from the returned metadata.
+              If `false`, the call will fail with a 409 (Conflict) response code.
+        - name: upload_id
+          in: query
+          type: string
+          required: true
+          description: Used to identify the chunked upload session you'd like to commit.
       responses:
         200:
-          description: The metadata of the restored file.
+          description: |
+              The metadata for the uploaded file. More information on the returned metadata fields are
+              available [here](https://www.dropbox.com/developers/core/docs#metadata-details).
           schema:
             $ref: '#/definitions/FileMetadata'
         400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /search/{root}/{path}:
-    get:
-      tags:
-        - files
-      summary: Search for files and folders by name.
-      description: |
-          Returns metadata for all files and folders whose filename contains the given search string as a substring.
-
-          Searches are limited to the folder path and its sub-folder hierarchy provided in the call.
-
-          **Note:** Recent changes may not immediately be reflected in search results due to a short delay in indexing.
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
           description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path to the folder you want to search from.
-        - name: query
-          in: query
-          type: string
-          required: true
-          description: |
-              The search string. This string is split (on spaces) into individual words. Files and folders will be
-              returned if they contain all words in the search string.
-        - name: file_limit
-          in: query
-          type: integer
-          format: int32
-          required: false
-          description: The maximum and default value is 1,000. No more than `file_limit` search results will be returned.
-        - name: include_deleted
-          in: query
-          type: boolean
-          required: false
-          description: |
-              If this parameter is set to `true`, then files and folders that have been deleted will also be included
-              in the search.
-        - name: locale
-          in: query
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: include_membership
-          in: query
-          type: boolean
-          required: false
-          description: If `true`, metadata for a shared folder will include a list of members and a list of groups.
-      responses:
-        200:
-          description: List of metadata entries for any matching files and folders.
-          schema:
-            $ref: '#/definitions/SearchResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Search for files and folders by name.
-      description: |
-          Returns metadata for all files and folders whose filename contains the given search string as a substring.
-
-          Searches are limited to the folder path and its sub-folder hierarchy provided in the call.
-
-          **Note:** Recent changes may not immediately be reflected in search results due to a short delay in indexing.
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path to the folder you want to search from.
-        - name: query
-          in: formData
-          type: string
-          required: true
-          description: |
-              The search string. This string is split (on spaces) into individual words. Files and folders will be
-              returned if they contain all words in the search string.
-        - name: file_limit
-          in: formData
-          type: integer
-          format: int32
-          required: false
-          description: The maximum and default value is 1,000. No more than `file_limit` search results will be returned.
-        - name: include_deleted
-          in: formData
-          type: boolean
-          required: false
-          description: |
-              If this parameter is set to `true`, then files and folders that have been deleted will also be included
-              in the search.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given `locale`. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: include_membership
-          in: formData
-          type: boolean
-          required: false
-          description: If `true`, metadata for a shared folder will include a list of members and a list of groups.
-      responses:
-        200:
-          description: List of metadata entries for any matching files and folders.
-          schema:
-            $ref: '#/definitions/SearchResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /shares/{root}/{path}:
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Creates and returns a shared link to a file or folder.
-      description: |
-          Creates and returns a [shared link](https://www.dropbox.com/help/167) to a file or folder.
-
-          Dropbox for Business users can set restrictions on shared links; the `visibility` field indicates what
-          (if any) restrictions are set on this particular link. Possible values include:
-            * `PUBLIC` - anyone can view
-            * `TEAM_ONLY` - only the owner's team can view
-            * `PASSWORD` - a password is required
-            * `TEAM_AND_PASSWORD` - a combination of `TEAM_ONLY` and `PASSWORD` restrictions
-            * `SHARED_FOLDER_ONLY` - only [members](https://www.dropbox.com/help/6636) of the enclosing shared folder can view
-
-          Note that other values may be added at any time.
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path to the file or folder you want to link to.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              Use to specify language settings for user error messages and other language specific text. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: short_url
-          in: formData
-          type: boolean
-          required: false
-          description: |
-              When `true` (default), the URL returned will be shortened using the Dropbox URL shortener. If `false`,
-              the URL will link directly to the file's preview page.
-      responses:
-        200:
-          description: Shared link information.
-          schema:
-            $ref: '#/definitions/SharedLinkResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /media/{root}/{path}:
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Returns a link directly to a file.
-      description: |
-          Returns a link directly to a file.
-
-          Similar to [/shares](https://www.dropbox.com/developers/core/docs#shares). The difference is that this
-          bypasses the Dropbox webserver, used to provide a preview of the file, so that you can effectively stream
-          the contents of your media. This URL should not be used to display content directly in the browser.
-
-          The `/media` link expires after four hours, allotting enough time to stream files, but not enough to leave
-          a connection open indefinitely.
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path to the media file you want a direct link to.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              Use to specify language settings for user error messages and other language specific text. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-      responses:
-        200:
-          description: Media link information.
-          schema:
-            $ref: '#/definitions/MediaLinkResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /copy_ref/{root}/{path}:
-    get:
-      tags:
-        - files
-      summary: Creates and returns a copy_ref to a file.
-      description: |
-          Creates and returns a `copy_ref` to a file.
-
-          This reference string can be used to copy that file to another user's Dropbox by passing it in as the
-          `from_copy_ref` parameter on [/fileops/copy](https://www.dropbox.com/developers/core/docs#fileops-copy).
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path to the file you want a `copy_ref` to refer to.
-      responses:
-        200:
-          description: A copy_ref to the specified file.
-          schema:
-            $ref: '#/definitions/CopyRefResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /shared_folders:
-    get:
-      tags:
-        - files
-      summary: Returns a list of all shared folders.
-      description: |
-          Returns a list of all shared folders the authenticated user has access to.
-
-          This API call requires Full Dropbox or File type [permissions](https://www.dropbox.com/developers/reference/devguide#app-permissions).
-
-          Note that `same_team` is only present if the linked account is a member of a Dropbox for Business team,
-          and `member_id` is only present when this endpoint is called by a Dropbox for Business app and the user
-          is on that team.
-
-          The `membership` field only contains users who have joined the shared folder and does not include users who
-          have been invited but have not accepted. When the `active` field is `false`, it means that a user has left
-          a shared folder (but may still rejoin).
-      parameters:
-        - name: include_membership
-          in: query
-          type: boolean
-          required: false
-          description: If `true`, include a list of members and a list of groups for the shared folder.
-      responses:
-        200:
-          description: A list of shared folders metadata objects.
-          schema:
-            $ref: '#/definitions/SharedFolders'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/SharedFolderForbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /shared_folders/{shared_folder_id}:
-    get:
-      tags:
-        - files
-      summary: Returns metadata about a specific shared folder.
-      description: |
-          Returns metadata about a specific shared folder.
-
-          This API call requires Full Dropbox or File type [permissions](https://www.dropbox.com/developers/reference/devguide#app-permissions).
-
-          Note that `same_team` is only present if the linked account is a member of a Dropbox for Business team,
-          and `member_id` is only present when this endpoint is called by a Dropbox for Business app and the user
-          is on that team.
-
-          The `membership` field only contains users who have joined the shared folder and does not include users who
-          have been invited but have not accepted. When the `active` field is `false`, it means that a user has left
-          a shared folder (but may still rejoin).
-      parameters:
-        - name: shared_folder_id
-          in: path
-          type: string
-          required: true
-          description: The ID of a specific shared folder.
-        - name: include_membership
-          in: query
-          type: boolean
-          required: true
-          description: If `true`, include a list of members and a list of groups for the shared folder.
-      responses:
-        200:
-          description: The metadata for a specific shared folder.
-          schema:
-            $ref: '#/definitions/SharedFolderMetadata'
-        400:
-          description: Returned if the shared folder ID is not valid.
+              Returned if the request does not contain an `upload_id` or if there is no chunked upload matching
+              the given `upload_id`.
           schema:
             $ref: '#/definitions/ErrorMessage'
         401:
           $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/SharedFolderForbidden'
-        404:
-          $ref: '#/responses/FileNotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /save_url/{root}/{path}:
-    post:
-      tags:
-        - files
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Save a file from the specified URL into Dropbox.
-      description: |
-          Save a file from the specified URL into Dropbox.
-
-          If the given path already exists, the file will be renamed to avoid the conflict (e.g. `myfile (1).txt`).
-      parameters:
-        - name: root
-          in: path
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              Root folder: `auto` - automatically determines the appropriate root folder using your app's permission
-              level (recommended); `sandbox` - the codename for app folder level; `dropbox` - full dropbox access.
-        - name: path
-          in: path
-          type: string
-          required: true
-          description: The path in Dropbox where the file will be saved.
-        - name: url
-          in: formData
-          type: string
-          required: true
-          description: The URL to be fetched.
-      responses:
-        200:
-          description: Status and ID of fetching job.
-          schema:
-            $ref: '#/definitions/JobResult'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /save_url_job/{job-id}:
-    get:
-      tags:
-        - files
-      summary: Check the status of a save URL job.
-      description: |
-          Check the status of a [save URL](https://www.dropbox.com/developers/core/docs#save-url) job.
-
-          Status field may have one of the following values:
-            * `PENDING` – The job has not yet started.
-            * `DOWNLOADING` – The job has started but hasn't yet completed.
-            * `COMPLETE` – The job is complete.
-            * `FAILED` – The job failed. An additional `error` field will describe the failure.
-      parameters:
-        - name: job-id
-          in: path
-          type: string
-          required: true
-          description: A job ID returned from [/save_url](https://www.dropbox.com/developers/core/docs#save-url).
-      responses:
-        200:
-          description: Status of fetching job.
-          schema:
-            $ref: '#/definitions/JobStatus'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /fileops/copy:
-    post:
-      tags:
-        - fileops
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Copies a file or folder to a new location.
-      description: Copies a file or folder to a new location.
-      parameters:
-        - name: root
-          in: formData
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              The root relative to which `from_path` and `to_path` are specified. Valid values are `auto` (recommended),
-              `sandbox`, and `dropbox`.
-        - name: from_path
-          in: formData
-          type: string
-          required: false
-          description: Specifies the file or folder to be copied from relative to `root`.
-        - name: to_path
-          in: formData
-          type: string
-          required: true
-          description: Specifies the destination path, *including the new name for the file or folder*, relative to `root`.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given locale. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-        - name: from_copy_ref
-          in: formData
-          type: string
-          required: false
-          description: |
-              Specifies a `copy_ref` generated from a previous [/copy_ref](https://www.dropbox.com/developers/core/docs#copy_ref)
-              call. Must be used instead of the `from_path` parameter.
-      responses:
-        200:
-          description: Metadata for the copy of the file or folder.
-          schema:
-            $ref: '#/definitions/ResourceShortMetadata'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          description: |
-              An invalid copy operation was attempted (e.g. there is already a file at the given destination, or trying
-              to copy a shared folder).
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        404:
-          description: The source file wasn't found at the specified path.
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        406:
-          $ref: '#/responses/NotAcceptable'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /fileops/create_folder:
-    post:
-      tags:
-        - fileops
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Creates a folder.
-      description: Creates a folder.
-      parameters:
-        - name: root
-          in: formData
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              The root relative to which `path` is specified. Valid values are `auto` (recommended), `sandbox`, and `dropbox`.
-        - name: path
-          in: formData
-          type: string
-          required: true
-          description: The path to the new folder to create relative to `root`.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given locale. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-      responses:
-        200:
-          description: Metadata for the new folder.
-          schema:
-            $ref: '#/definitions/ResourceShortMetadata'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          description: There is already a folder at the given destination.
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        404:
-          $ref: '#/responses/NotFound'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /fileops/delete:
-    post:
-      tags:
-        - fileops
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Deletes a file or folder.
-      description: Deletes a file or folder.
-      parameters:
-        - name: root
-          in: formData
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              The root relative to which `path` is specified. Valid values are `auto` (recommended), `sandbox`, and `dropbox`.
-        - name: path
-          in: formData
-          type: string
-          required: true
-          description: The path to the file or folder to be deleted.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given locale. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-      responses:
-        200:
-          description: Metadata for the deleted file or folder.
-          schema:
-            $ref: '#/definitions/ResourceShortMetadata'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          $ref: '#/responses/Forbidden'
-        404:
-          description: No file was found at the specified path.
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        406:
-          $ref: '#/responses/NotAcceptable'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
-      security:
-        - dropbox_auth: []
-
-  /fileops/move:
-    post:
-      tags:
-        - fileops
-      consumes:
-        - application/x-www-form-urlencoded
-      summary: Moves a file or folder to a new location.
-      description: Moves a file or folder to a new location.
-      parameters:
-        - name: root
-          in: formData
-          type: string
-          enum: [ 'auto', 'sandbox', 'dropbox' ]
-          required: true
-          description: |
-              The root relative to which `from_path` and `to_path` are specified. Valid values are `auto` (recommended),
-              `sandbox`, and `dropbox`.
-        - name: from_path
-          in: formData
-          type: string
-          required: true
-          description: Specifies the file or folder to be moved from relative to `root`.
-        - name: to_path
-          in: formData
-          type: string
-          required: true
-          description: Specifies the destination path, *including the new name for the file or folder*, relative to `root`.
-        - name: locale
-          in: formData
-          type: string
-          required: false
-          description: |
-              The metadata returned will have its `size` field translated based on the given locale. For more
-              information see [locale notes](https://www.dropbox.com/developers/core/docs#param.locale).
-      responses:
-        200:
-          description: Metadata for the deleted file or folder.
-          schema:
-            $ref: '#/definitions/ResourceShortMetadata'
-        400:
-          $ref: '#/responses/BadRequest'
-        401:
-          $ref: '#/responses/Unauthorized'
-        403:
-          description: |
-              An invalid move operation was attempted (e.g. there is already a file at the given destination, or moving
-              a shared folder into a shared folder).
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        404:
-          description: The source file wasn't found at the specified path.
-          schema:
-            $ref: '#/definitions/ErrorMessage'
-        406:
-          $ref: '#/responses/NotAcceptable'
-        429:
-          $ref: '#/responses/TooManyRequests'
-        500:
-          $ref: '#/responses/InternalServerError'
-        503:
-          $ref: '#/responses/ServiceUnavailable'
-        507:
-          $ref: '#/responses/InsufficientStorage'
+        409:
+          $ref: '#/responses/Conflict'
       security:
         - dropbox_auth: []
 
@@ -1396,299 +581,6 @@ definitions:
       error:
         type: string
         description: Error description
-
-  OAuth2Token:
-    type: object
-    required:
-      - access_token
-      - token_type
-    properties:
-      access_token:
-        type: string
-        description: OAuth 2 access token
-      token_type:
-        type: string
-        enum: [ 'bearer' ]
-        description: Token type; the token type will always be "bearer"
-
-  UserAccountInfo:
-    type: object
-    required:
-      - uid
-      - display_name
-      - name_details
-      - referral_link
-      - locale
-      - is_paired
-      - quota_info
-    properties:
-      uid:
-        type: integer
-        format: int64
-        description: The user's unique Dropbox ID
-      display_name:
-        type: string
-        description: The user's display name
-      name_details:
-        $ref: '#/definitions/NameDetails'
-        description: The user's name details
-      referral_link:
-        type: string
-        description: The user's [referral link](https://www.dropbox.com/referrals)
-      country:
-        type: string
-        description: The user's two-letter country code, if available
-      locale:
-        type: string
-        description: Locale preference set by the user (e.g. en-us)
-      is_paired:
-        type: boolean
-        description: If `true`, there is a paired account associated with this user
-      team:
-        $ref: '#/definitions/Team'
-        description: If the user belongs to a team, contains team information; otherwise, `null`
-      quota_info:
-        $ref: '#/definitions/QuotaInfo'
-        description: The user's quota information
-
-  NameDetails:
-    type: object
-    required:
-      - familiar_name
-      - given_name
-      - surname
-    properties:
-      familiar_name:
-        type: string
-        description: The locale-dependent familiar name for the user
-      given_name:
-        type: string
-        description: The user's given name
-      surname:
-        type: string
-        description: The user's surname
-
-  Team:
-    type: object
-    required:
-      - name
-      - team_id
-    properties:
-      name:
-        type: string
-        description: The name of the team the user belongs to
-      team_id:
-        type: string
-        description: The ID of the team the user belongs to
-
-  QuotaInfo:
-    type: object
-    required:
-      - shared
-      - quota
-      - normal
-    properties:
-      shared:
-        type: integer
-        format: int64
-        description: |
-            The user's used quota in shared folders (bytes); if the user belongs to a team, this includes all usage
-            contributed to the team's quota outside of the user's own used quota (bytes)
-      quota:
-        type: integer
-        format: int64
-        description: |
-            The user's total quota allocation (bytes); if the user belongs to a team, the team's total quota
-            allocation (bytes)
-      normal:
-        type: integer
-        format: int64
-        description: The user's used quota outside of shared folders (bytes)
-
-  ResourceMetadata:
-    type: object
-    required:
-      - size
-      - bytes
-      - path
-      - is_dir
-      - rev
-      - thumb_exists
-      - icon
-      - root
-      - revision
-    properties:
-      size:
-        type: string
-        description: A human-readable description of the file size (translated by [locale](https://www.dropbox.com/developers/core/docs#param.locale))
-      bytes:
-        type: integer
-        format: int64
-        description: The file size in bytes
-      path:
-        type: string
-        description: Returns the canonical path to the file or folder
-      is_dir:
-        type: boolean
-        description: Whether the given entry is a folder or not
-      is_deleted:
-        type: boolean
-        description: Whether the given entry is deleted (only included if deleted files are being returned)
-      rev:
-        type: string
-        description: |
-            A unique identifier for the current revision of a file; this field is the same `rev` as elsewhere in
-            the API and can be used to detect changes and avoid conflicts.
-      hash:
-        type: string
-        description: |
-            A folder's `hash` is useful for indicating changes to the folder's contents in later calls to
-            [/metadata](https://www.dropbox.com/developers/core/docs#metadata); this is roughly the folder equivalent
-            to a file's `rev`
-      thumb_exists:
-        type: boolean
-        description: |
-            `true` if the file is an image that can be converted to a thumbnail via the
-            [/thumbnails](https://www.dropbox.com/developers/core/docs#thumbnails) call
-      photo_info:
-        $ref: '#/definitions/PhotoInfo'
-        description: Only returned when the `include_media_info` parameter is `true` and the file is an image
-      video_info:
-        $ref: '#/definitions/VideoInfo'
-        description: Only returned when the `include_media_info` parameter is `true` and the file is a video
-      icon:
-        type: string
-        description: |
-            The name of the icon used to illustrate the file type in Dropbox's
-            [icon library](https://www.dropbox.com/static/images/dropbox-api-icons.zip)
-      mime_type:
-        type: string
-        description: MIME type of a file
-      modified:
-        type: string
-        description: |
-            The last time the file was modified on Dropbox, in the standard
-            [date format](https://www.dropbox.com/developers/core/docs#date-format) (not included for the root folder)
-      client_mtime:
-        type: string
-        description: |
-            For files, this is the modification time set by the desktop client when the file was added to Dropbox,
-            in the standard [date format](https://www.dropbox.com/developers/core/docs#date-format); since this time
-            is not verified (the Dropbox server stores whatever the desktop client sends up), this should only be used
-            for display purposes (such as sorting) and not, for example, to determine if a file has changed or not
-      root:
-        type: string
-        description: |
-            The root or top-level folder depending on your [access level](https://www.dropbox.com/developers/reference/devguide#app-permissions);
-            all paths returned are relative to this root level; permitted values are either `dropbox` or `app_folder`
-      contents:
-        type: array
-        description: |
-            Collection of meta data about contents of this folder; if `list` is `false` the `contents` key will simply
-            be omitted from the result
-        items:
-          $ref: '#/definitions/ResourceMetadata'
-      revision:
-        type: integer
-        description: A **deprecated** field that semi-uniquely identifies a file; use `rev` instead
-      shared_folder:
-        $ref: '#/definitions/SharedFolderInfo'
-        description: |
-            This field will be included for shared folders; if the `include_membership` parameter is passed, there will
-            additionally be a `membership` field and a `groups` field.
-      read_only:
-        type: boolean
-        description: |
-            For shared folders, this field specifies whether the user has read-only access to the folder; for files
-            within a shared folder, this specifies the read-only status of the parent shared folder
-      parent_shared_folder_id:
-        type: string
-        description: For files within a shared folder, this field specifies the ID of the containing shared folder
-      modifier:
-        $ref: '#/definitions/MembershipUser'
-        description: |
-            For files within a shared folder, this field specifies which user last modified this file; if the modifying
-            user no longer exists, the value will be `null`
-
-  ResourceShortMetadata:
-    type: object
-    required:
-      - size
-      - bytes
-      - path
-      - is_dir
-      - rev
-      - thumb_exists
-      - icon
-      - root
-      - revision
-    properties:
-      size:
-        type: string
-        description: A human-readable description of the file size (translated by [locale](https://www.dropbox.com/developers/core/docs#param.locale))
-      bytes:
-        type: integer
-        format: int64
-        description: The file size in bytes
-      path:
-        type: string
-        description: Returns the canonical path to the file or folder
-      is_dir:
-        type: boolean
-        description: Whether the given entry is a folder or not
-      is_deleted:
-        type: boolean
-        description: Whether the given entry is deleted (only included if deleted files are being returned)
-      rev:
-        type: string
-        description: |
-            A unique identifier for the current revision of a file; this field is the same `rev` as elsewhere in
-            the API and can be used to detect changes and avoid conflicts.
-      hash:
-        type: string
-        description: |
-            A folder's `hash` is useful for indicating changes to the folder's contents in later calls to
-            [/metadata](https://www.dropbox.com/developers/core/docs#metadata); this is roughly the folder equivalent
-            to a file's `rev`
-      thumb_exists:
-        type: boolean
-        description: |
-            `true` if the file is an image that can be converted to a thumbnail via the
-            [/thumbnails](https://www.dropbox.com/developers/core/docs#thumbnails) call
-      icon:
-        type: string
-        description: |
-            The name of the icon used to illustrate the file type in Dropbox's
-            [icon library](https://www.dropbox.com/static/images/dropbox-api-icons.zip)
-      mime_type:
-        type: string
-        description: MIME type of a file
-      modified:
-        type: string
-        description: |
-            The last time the file was modified on Dropbox, in the standard
-            [date format](https://www.dropbox.com/developers/core/docs#date-format) (not included for the root folder)
-      root:
-        type: string
-        description: |
-            The root or top-level folder depending on your [access level](https://www.dropbox.com/developers/reference/devguide#app-permissions);
-            all paths returned are relative to this root level; permitted values are either `dropbox` or `app_folder`
-      revision:
-        type: integer
-        description: A **deprecated** field that semi-uniquely identifies a file; use `rev` instead
-      shared_folder:
-        $ref: '#/definitions/SharedFolderInfo'
-        description: |
-            This field will be included for shared folders; if the `include_membership` parameter is passed, there will
-            additionally be a `membership` field and a `groups` field.
-      read_only:
-        type: boolean
-        description: |
-            For shared folders, this field specifies whether the user has read-only access to the folder; for files
-            within a shared folder, this specifies the read-only status of the parent shared folder
-      parent_shared_folder_id:
-        type: string
-        description: For files within a shared folder, this field specifies the ID of the containing shared folder
 
   FileMetadata:
     type: object
@@ -1753,291 +645,42 @@ definitions:
         type: integer
         description: A **deprecated** field that semi-uniquely identifies a file; use `rev` instead
 
-  PhotoInfo:
+  ChunkedUploadInfo:
     type: object
     required:
-      - time_taken
-      - lat_long
+      - upload_id
+      - offset
+      - expires
     properties:
-      time_taken:
+      upload_id:
         type: string
-        description: Photo creation [time](https://www.dropbox.com/developers/core/docs#date-format)
-      lat_long:
-        type: array
-        description: GPS coordinates - [latitude, longitude]
-        items:
-          type: number
-          format: double
-
-  VideoInfo:
-    type: object
-    required:
-      - time_taken
-      - lat_long
-      - duration
-    properties:
-      time_taken:
-        type: string
-        description: Video creation [time](https://www.dropbox.com/developers/core/docs#date-format)
-      lat_long:
-        type: array
-        description: GPS coordinates - [latitude, longitude]
-        items:
-          type: number
-          format: double
-      duration:
-        type: integer
-        description: Length of the video in milliseconds
-
-  SharedFolderInfo:
-    type: object
-    required:
-      - id
-      - groups
-    properties:
-      id:
-        type: string
-        description: ID of the shared folder
-      groups:
-        type: array
-        description: ??? Group names (documentation is not detailed enough)
-        items:
-          type: string
-      membership:
-        type: array
-        description: Members who have access to this folder
-        items:
-          $ref: '#/definitions/MembershipInfo'
-
-  MembershipInfo:
-    type: object
-    required:
-      - user
-      - access_type
-      - active
-    properties:
-      user:
-        $ref: '#/definitions/MembershipUser'
-        description: Short description of a user
-      access_type:
-        type: string
-        description: Member access type; e.g. "owner", "editor", etc. (TODO find out all possible values)
-      active:
-        type: boolean
-        description: Indicates whether membership is active or not
-
-  MembershipUser:
-    type: object
-    required:
-      - uid
-      - display_name
-      - same_team
-      - member_id
-    properties:
-      uid:
+        description: The unique ID of the in-progress upload on the server
+      offset:
         type: integer
         format: int64
-        description: The user's unique Dropbox ID
-      display_name:
-        type: string
-        description: The user's display name
-      same_team:
-        type: boolean
-        description: Indicates whether the user is on the same team as the linked account
-      member_id:
-        type: string
-        description: The member ID of the user
-
-  DeltaResult:
-    type: object
-    required:
-      - reset
-      - cursor
-      - has_more
-      - entries
-    properties:
-      reset:
-        type: boolean
-        description: |
-            If `true`, clear your local state before processing the delta entries. `reset` is always `true` on the
-            initial call to `/delta` (i.e. when no `cursor` is passed in); otherwise, it is `true` in rare situations,
-            such as after server or account maintenance, or if a user deletes their app folder
-      cursor:
-        type: string
-        description: |
-            A string that encodes the latest information that has been returned; on the next call to `/delta`, pass in
-            this value
-      has_more:
-        type: boolean
-        description: |
-            If `true`, then there are more entries available; you can call `/delta` again immediately to retrieve those
-            entries; if `false`, then wait for at least five minutes (preferably longer) before checking again
-      entries:
-        type: array
-        description: |
-            A list of "delta entries"; each delta entry is a 2-item list, where first item is resource path and second
-            item holds resource metadata or `null` if the resource is deleted - `[ <path>, <metadata> ]`, or
-            `[ <path>, null ]`
-        items:
-          $ref: '#/definitions/DeltaEntry'
-
-  DeltaEntry:
-    description: |
-        **Note:** Unfortunately Swagger does not support arrays of objects with different type.
-
-        Each delta entry is a 2-item list where first item is "string" that indicates a path and second is
-        `ResourceMetadata` object or `null` if indicated path does not exist any more.
-    type: array
-    items:
-      $ref: '#/definitions/ResourceMetadata'
-      description: The file/folder metadata or `null`
-
-  CursorInfo:
-    type: object
-    required:
-      - cursor
-    properties:
-      cursor:
-        type: string
-        description: A string that encodes the latest server state, as would be returned by `/delta` when `has_more` is `false`.
-
-  Revisions:
-    description: List of file revisions.
-    type: array
-    items:
-      $ref: '#/definitions/FileMetadata'
-
-  SearchResult:
-    description: List of metadata entries for any matching files and folders.
-    type: array
-    items:
-      $ref: '#/definitions/ResourceShortMetadata'
-
-  SharedLinkResult:
-    type: object
-    required:
-      - url
-      - expires
-    properties:
-      url:
-        type: string
-        description: Actual shared link URL
+        description: The total amount of bytes transferred to the server for this upload session
       expires:
         type: string
-        description: Link's expiration date in Dropbox's usual [date format](https://www.dropbox.com/developers/core/docs#date-format)
-      visibility:
-        type: string
-        enum:
-          - PUBLIC
-          - TEAM_ONLY
-          - PASSWORD
-          - TEAM_AND_PASSWORD
-          - SHARED_FOLDER_ONLY
-        description: Indicates what (if any) restrictions are set on this particular link
+        description: The time this upload session will expire at in the standard [date format](https://www.dropbox.com/developers/core/docs#date-format)
 
-  MediaLinkResult:
+  ChunkedUploadError:
     type: object
     required:
-      - url
+      - upload_id
+      - offset
       - expires
+      - error
     properties:
-      url:
+      upload_id:
         type: string
-        description: An URL that serves the media directly
+        description: The unique ID of the in-progress upload on the server
+      offset:
+        type: integer
+        format: int64
+        description: The total amount of bytes transferred to the server for this upload session
       expires:
         type: string
-        description: Link's expiration date in Dropbox's usual [date format](https://www.dropbox.com/developers/core/docs#date-format)
-
-  CopyRefResult:
-    type: object
-    required:
-      - copy_ref
-      - expires
-    properties:
-      copy_ref:
-        type: string
-        description: Copy reference to the specified file
-      expires:
-        type: string
-        description: Reference expiration date in Dropbox's usual [date format](https://www.dropbox.com/developers/core/docs#date-format)
-
-  SharedFolderMetadata:
-    type: object
-    required:
-      - shared_folder_id
-      - shared_folder_name
-      - path
-      - access_type
-      - shared_link_policy
-      - owner
-      - groups
-    properties:
-      shared_folder_id:
-        type: string
-        description: ID of the shared folder
-      shared_folder_name:
-        type: string
-        description: Shared folder name
-      path:
-        type: string
-        description: Path to the shared folder
-      access_type:
-        type: string
-        description: Member access type; e.g. "owner", "editor", etc. (TODO find out all possible values)
-      shared_link_policy:
-        type: string
-        description: Shared link policy; e.g. "all", etc. (TODO find out all possible values)
-      owner:
-        $ref: '#/definitions/MembershipUser'
-        description: Owner of this shared folder
-      groups:
-        type: array
-        description: ??? Group names (documentation is not detailed enough)
-        items:
-          type: string
-      membership:
-        type: array
-        description: Members who have access to this folder
-        items:
-          $ref: '#/definitions/MembershipInfo'
-
-  SharedFolders:
-    description: List of shared folders metadata.
-    type: array
-    items:
-      $ref: '#/definitions/SharedFolderMetadata'
-
-  JobResult:
-    type: object
-    required:
-      - status
-      - job
-    properties:
-      status:
-        type: string
-        enum:
-          - PENDING
-          - DOWNLOADING
-          - COMPLETE
-          - FAILED
-        description: Job status
-      job:
-        type: string
-        description: Job ID to check the job's status
-
-  JobStatus:
-    type: object
-    required:
-      - status
-    properties:
-      status:
-        type: string
-        enum:
-          - PENDING
-          - DOWNLOADING
-          - COMPLETE
-          - FAILED
-        description: Job status
+        description: The time this upload session will expire at in the standard [date format](https://www.dropbox.com/developers/core/docs#date-format)
       error:
         type: string
-        description: Failure description; only present if status is `FAILED`
+        description: Error description
