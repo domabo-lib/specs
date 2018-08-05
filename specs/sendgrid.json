@@ -23250,14 +23250,12 @@
             "name": "Authorization",
             "in": "header",
             "required": true,
-            "type": "string",
-            "default": "Bearer <<apiKey>>"
+            "type": "string"
         },
         "trait:onBehalfOfSubuser:on-behalf-of": {
             "name": "on-behalf-of",
             "in": "header",
-            "type": "string",
-            "default": "subuser_<user_name>"
+            "type": "string"
         }
     },
     "definitions": {
